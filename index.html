@@ -169,6 +169,15 @@ body.has-nav main{padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}
 .edit-actions{display:flex;align-items:center;gap:8px;width:100%}
 .edit-actions .sp{flex:1}
 .add{display:block;width:100%;margin-top:14px;background:transparent;border:2px dashed var(--line);border-radius:16px;padding:12px;min-height:50px;font-weight:600;color:var(--teal)}
+.bud-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--line)}
+.bud-row:first-of-type{border-top:0}
+.bud-row b{white-space:nowrap;font-weight:600}
+.bud-row .meta{margin-top:1px}
+.bud-sum{display:flex;justify-content:space-between;gap:12px;margin-top:6px;padding-top:10px;border-top:2px solid var(--ink);font:700 20px/1.2 "Barlow Condensed","Arial Narrow",sans-serif}
+.bud-total{background:var(--teal);color:var(--on-teal);border-radius:16px;padding:16px 18px;margin:0 0 18px}
+.bud-total .big{display:block;font:700 40px/1 "Barlow Condensed","Arial Narrow",sans-serif;margin:4px 0}
+.bud-total small{opacity:.85;font-size:14px}
+.card+.sec-h{margin-top:22px}
 .small{font-size:14px;color:var(--muted);margin:0 0 10px}
 
 input,select,textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 12px;min-height:46px;font-size:16px}
@@ -277,6 +286,7 @@ const ICON={
   rezerwacje:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4Z"/><path d="M15 8v8" stroke-dasharray="1.5 2.5"/></svg>',
   bagaz:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M9 7V4h6v3M9 11v5M15 11v5"/></svg>',
   lista:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/></svg>',
+  budzet:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h11v4"/><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M16 13h1.5"/></svg>',
   info:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>',
   chev:'<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>'
 };
@@ -636,8 +646,8 @@ function change(fn){fn();persist();render();}
 /* ---------- Widoki ---------- */
 function render(){
   const left=items().filter(p=>!mine.done[p.id]).length;
-  const tabs=[['plan','Plan',0],['rezerwacje','Rezerwacje',0],['bagaz','Bagaż',0],['lista','Moja lista',left],['info','Info',0]];
-  const panel={plan:()=>planHTML(TRIP),rezerwacje:()=>bookingsTabHTML(TRIP),bagaz:()=>baggageTabHTML(TRIP),lista:listHTML,info:infoHTML}[tab]();
+  const tabs=[['plan','Plan',0],['rezerwacje','Rezerwacje',0],['budzet','Budżet',0],['lista','Moja lista',left],['info','Info',0]];
+  const panel={plan:()=>planHTML(TRIP),rezerwacje:()=>bookingsTabHTML(TRIP),budzet:budgetHTML,lista:listHTML,info:infoHTML}[tab]();
   app.innerHTML=heroHTML(TRIP)+`<section class="panel">${panel}</section>`+navHTML(tabs,tab);
   afterRender();
 }
@@ -661,6 +671,35 @@ function listHTML(){
   }).join('');
   h+=`<form class="inline" data-form="add"><input id="addInput" name="item" placeholder="Np. ładowarka" aria-label="Nowa pozycja" autocomplete="off"><select name="group" aria-label="Grupa">${gopts.map(g=>`<option${g==='Moje'?' selected':''}>${esc(g)}</option>`).join('')}</select><button class="primary" type="submit">Dodaj</button></form>`;
   if(Object.keys(mine.removed).length)h+=`<button class="link" style="margin-top:14px" data-act="restore">Przywróć usunięte pozycje</button>`;
+  return h;
+}
+const BUDGET={
+ total:38110,
+ groups:[
+  {title:'Loty LOT, Warszawa ⇄ Miami',items:[
+    ['Bilety w obie strony, 2 dorosłych + 2 dzieci','cena z 9.11, jeszcze niekupione',15923]],
+   note:'Po odjęciu vouchera LOT 4 400 zł: ok. 11 523 zł.'},
+  {title:'Rejs Norwegian Sun, obowiązkowe',items:[
+    ['Kabina z balkonem BF, 2+2','z podatkami i opłatami portowymi',13899],
+    ['Napiwki na statku','20 USD × 4 os. × 11 nocy = 880 USD',3476],
+    ['Opłaty TFG/TFP','7 zł × 2 × 4 os.',56]]},
+  {title:'Napoje na statku',items:[
+    ['Pakiet Free at Sea dla 2 dorosłych','818 EUR, opcjonalnie',3477],
+    ['Napoje gazowane i soki dla dzieci','15 USD × 2 × 11 dni = 330 USD',1304]]}
+ ],
+ todo:['Hotel w Miami, 4 noce przed rejsem','Hotel w Miami, 1 noc po rejsie','Transport na Florydzie','Dojazd do Warszawy, paliwo i parking'],
+ rates:'Kursy: 1 USD ≈ 3,95 zł, 1 EUR ≈ 4,25 zł. Kwoty orientacyjne, mogą się zmienić.'
+};
+const zl=n=>Math.round(n).toLocaleString('pl-PL')+' zł';
+function budgetHTML(){
+  const B=BUDGET,sum=B.groups.reduce((a,g)=>a+g.items.reduce((x,i)=>x+i[2],0),0);
+  let h=`<div class="bud-total"><small>Razem na dziś, 2 dorosłych + 2 dzieci</small><span class="big">${zl(sum)}</span><small>ok. ${zl(sum/4)} na osobę · po odjęciu vouchera LOT ok. ${zl(sum-4400)}</small></div>`;
+  B.groups.forEach(g=>{
+    const gs=g.items.reduce((x,i)=>x+i[2],0);
+    h+=`<h3 class="sec-h">${esc(g.title)}</h3><div class="card">${g.items.map(([t,m,a])=>`<div class="bud-row"><span>${esc(t)}<span class="meta">${esc(m)}</span></span><b>${zl(a)}</b></div>`).join('')}${g.items.length>1?`<div class="bud-sum"><span>Razem</span><span>${zl(gs)}</span></div>`:''}${g.note?`<p class="small" style="margin:8px 0 0">${esc(g.note)}</p>`:''}</div>`;
+  });
+  h+=`<h3 class="sec-h">Jeszcze bez ceny</h3><div class="card">${B.todo.map(t=>`<div class="bud-row"><span>${esc(t)}</span><b class="muted">—</b></div>`).join('')}</div>`;
+  h+=`<p class="small" style="margin-top:14px">${esc(B.rates)}</p>`;
   return h;
 }
 function infoHTML(){const c=currencyHTML(TRIP);return c+(TRIP.notes?`<h3 class="sec-h">Notatki</h3><div class="card prose">${noteHTML(TRIP.notes)}</div>`:(c?'':'<p class="muted">Brak dodatkowych informacji.</p>'));}
